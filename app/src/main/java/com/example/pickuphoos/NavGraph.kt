@@ -6,24 +6,37 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.pickuphoos.ui.screens.CreateAccountScreen
+import com.example.pickuphoos.ui.screens.CreateGameScreen
+import com.example.pickuphoos.ui.screens.GameDetailScreen
+import com.example.pickuphoos.ui.screens.ListScreen
 import com.example.pickuphoos.ui.screens.LoginScreen
 import com.example.pickuphoos.ui.screens.MapScreen
+import com.example.pickuphoos.ui.screens.ProfileScreen
 import com.example.pickuphoos.viewmodel.AuthState
 import com.example.pickuphoos.viewmodel.AuthViewModel
+import com.example.pickuphoos.viewmodel.CreateGameViewModel
+import com.example.pickuphoos.viewmodel.GameDetailViewModel
 import com.example.pickuphoos.viewmodel.MapViewModel
+import com.example.pickuphoos.viewmodel.ProfileViewModel
 
 // ─── Route constants ──────────────────────────────────────────────────────────
 
 object Routes {
-    const val LOGIN      = "login"
-    const val CREATE     = "create_account"
-    const val PREFERENCE = "preference"
-    const val MAP        = "map"
-    const val LIST       = "list"
-    const val PROFILE    = "profile"
+    const val LOGIN       = "login"
+    const val CREATE      = "create_account"
+    const val PREFERENCE  = "preference"
+    const val MAP         = "map"
+    const val LIST        = "list"
+    const val PROFILE     = "profile"
+    const val CREATE_GAME = "create_game"
+    const val GAME_DETAIL = "game_detail/{gameId}"
+
+    fun gameDetail(gameId: String) = "game_detail/$gameId"
 }
 
 // ─── Root NavGraph ────────────────────────────────────────────────────────────
@@ -37,7 +50,7 @@ fun PickupHoosNavGraph(navController: NavHostController) {
     val context = LocalContext.current
 
     val startDestination = if (authViewModel.currentUser != null) Routes.MAP else Routes.LOGIN
-//    val startDestination = Routes.LOGIN
+
     // Use a flag so navigation only fires after NavHost has composed
     var navReady by remember { mutableStateOf(false) }
 
@@ -118,8 +131,8 @@ fun PickupHoosNavGraph(navController: NavHostController) {
             LaunchedEffect(Unit) { navReady = true }
             MapScreen(
                 viewModel = mapViewModel,
-                onCreateGameClick = { navController.navigate("create_game") },
-                onGameClick = { game -> navController.navigate("game_detail/${game.id}") },
+                onCreateGameClick = { navController.navigate(Routes.CREATE_GAME) },
+                onGameClick = { game -> navController.navigate(Routes.gameDetail(game.id)) },
                 onListClick = { navController.navigate(Routes.LIST) },
                 onProfileClick = { navController.navigate(Routes.PROFILE) }
             )
@@ -127,12 +140,67 @@ fun PickupHoosNavGraph(navController: NavHostController) {
 
         composable(Routes.LIST) {
             LaunchedEffect(Unit) { navReady = true }
-            // TODO: ListScreen
+            ListScreen(
+                viewModel = mapViewModel,
+                onGameClick = { game -> navController.navigate(Routes.gameDetail(game.id)) },
+                onCreateGameClick = { navController.navigate(Routes.CREATE_GAME) },
+                onMapClick = {
+                    navController.navigate(Routes.MAP) {
+                        popUpTo(Routes.MAP) { inclusive = true }
+                    }
+                },
+                onProfileClick = { navController.navigate(Routes.PROFILE) }
+            )
         }
 
         composable(Routes.PROFILE) {
             LaunchedEffect(Unit) { navReady = true }
-            // TODO: ProfileScreen
+            val profileViewModel: ProfileViewModel = viewModel()
+            ProfileScreen(
+                viewModel = profileViewModel,
+                onSignOutClick = {
+                    authViewModel.signOut()
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                onMapClick = {
+                    navController.navigate(Routes.MAP) {
+                        popUpTo(Routes.MAP) { inclusive = true }
+                    }
+                },
+                onListClick = {
+                    navController.navigate(Routes.LIST) {
+                        popUpTo(Routes.MAP)
+                    }
+                }
+            )
+        }
+
+        composable(Routes.CREATE_GAME) {
+            LaunchedEffect(Unit) { navReady = true }
+            val createGameViewModel: CreateGameViewModel = viewModel()
+            CreateGameScreen(
+                viewModel = createGameViewModel,
+                onBackClick = { navController.popBackStack() },
+                onGameCreated = {
+                    navController.navigate(Routes.MAP) {
+                        popUpTo(Routes.MAP) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Routes.GAME_DETAIL,
+            arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+        ) {
+            LaunchedEffect(Unit) { navReady = true }
+            val gameDetailViewModel: GameDetailViewModel = viewModel()
+            GameDetailScreen(
+                viewModel = gameDetailViewModel,
+                onBackClick = { navController.popBackStack() }
+            )
         }
     }
 }

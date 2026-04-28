@@ -95,24 +95,18 @@ fun MapScreen(
         )
     )
 
-    Scaffold(
-        containerColor = DarkNavy,
-        bottomBar = {
-            PickupHoosBottomNav(
-                currentRoute = "map",
-                onMapClick = {},
-                onListClick = onListClick,
-                onProfileClick = onProfileClick
-            )
-        }
-    ) { scaffoldPadding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkNavy)
+    ) {
         BottomSheetScaffold(
             scaffoldState = sheetState,
-            sheetPeekHeight = 220.dp,
+            sheetPeekHeight = 200.dp,
             sheetContainerColor = DarkNavy,
             sheetShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             containerColor = Color.Transparent,
-            modifier = Modifier.padding(scaffoldPadding),
+            modifier = Modifier.weight(1f),
             sheetContent = {
                 GameBottomSheet(
                     games = games,
@@ -166,7 +160,7 @@ fun MapScreen(
                     onClick = onCreateGameClick,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 230.dp),
+                        .padding(end = 16.dp, bottom = 16.dp),
                     containerColor = OrangeAccent,
                     shape = RoundedCornerShape(14.dp),
                     elevation = FloatingActionButtonDefaults.elevation(0.dp)
@@ -180,6 +174,13 @@ fun MapScreen(
                 }
             }
         }
+
+        PickupHoosBottomNav(
+            currentRoute = "map",
+            onMapClick = {},
+            onListClick = onListClick,
+            onProfileClick = onProfileClick
+        )
     }
 }
 

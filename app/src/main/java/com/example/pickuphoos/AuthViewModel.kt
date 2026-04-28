@@ -95,10 +95,20 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
+                android.util.Log.d("AuthVM", "Starting Google sign-in flow")
+                android.util.Log.d("AuthVM", "WEB_CLIENT_ID = $WEB_CLIENT_ID")
+
+                if (WEB_CLIENT_ID.startsWith("YOUR_WEB_CLIENT_ID")) {
+                    _authState.value = AuthState.Error(
+                        "Google Sign-In not configured. Set WEB_CLIENT_ID in AuthViewModel.kt"
+                    )
+                    return@launch
+                }
+
                 val credentialManager = CredentialManager.create(activityContext)
 
                 val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)   // allow any Google account
+                    .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(WEB_CLIENT_ID)
                     .setAutoSelectEnabled(false)
                     .build()
@@ -107,19 +117,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     .addCredentialOption(googleIdOption)
                     .build()
 
+                android.util.Log.d("AuthVM", "Requesting credential from CredentialManager")
                 val credentialResponse = credentialManager.getCredential(
                     request = request,
                     context = activityContext
                 )
+                android.util.Log.d("AuthVM", "Got credential, extracting Google ID token")
 
                 val googleIdToken = GoogleIdTokenCredential
                     .createFrom(credentialResponse.credential.data)
                     .idToken
 
+                android.util.Log.d("AuthVM", "Got token, signing in to Firebase")
                 val firebaseCredential = GoogleAuthProvider.getCredential(googleIdToken, null)
                 val result = auth.signInWithCredential(firebaseCredential).await()
                 val user = result.user ?: throw Exception("Google sign-in failed")
                 val isNew = result.additionalUserInfo?.isNewUser == true
+
+                android.util.Log.d("AuthVM", "Firebase sign-in success. isNewUser=$isNew")
 
                 if (isNew) {
                     saveUserProfile(
@@ -134,10 +149,21 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
             } catch (e: GetCredentialException) {
-                _authState.value = AuthState.Error("Google sign-in cancelled or unavailable")
+                android.util.Log.e("AuthVM", "GetCredentialException: ${e.javaClass.simpleName} - ${e.message}", e)
+                val msg = when {
+                    e.message?.contains("cancelled", true) == true ||
+                            e.message?.contains("canceled", true) == true ->
+                        "Google sign-in cancelled"
+                    e.message?.contains("NoCredentialException") == true ||
+                            e.javaClass.simpleName.contains("NoCredential") ->
+                        "No Google account found on this device. Please add one in Settings → Accounts."
+                    else -> "Google sign-in error: ${e.message ?: e.javaClass.simpleName}"
+                }
+                _authState.value = AuthState.Error(msg)
             } catch (e: Exception) {
+                android.util.Log.e("AuthVM", "Google sign-in exception: ${e.javaClass.simpleName} - ${e.message}", e)
                 _authState.value = AuthState.Error(
-                    friendlyAuthError(e.message ?: "Google sign-in failed")
+                    "Google sign-in failed: ${e.message ?: e.javaClass.simpleName}"
                 )
             }
         }
@@ -195,8 +221,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
-        // TODO: Replace with your actual Web Client ID from Firebase Console
         private const val WEB_CLIENT_ID =
-            "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+            "301685653729-r8salligick6t262s5mno1s1uf1hcnug.apps.googleusercontent.com"
     }
 }

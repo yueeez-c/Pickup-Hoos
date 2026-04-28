@@ -47,12 +47,20 @@ class MapViewModel : ViewModel() {
     private fun startListening() {
         listenerReg = db.collection("games")
             .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
+                if (error != null) {
+                    android.util.Log.e("MapVM", "Firestore listener error: ${error.message}", error)
+                    return@addSnapshotListener
+                }
+                if (snapshot == null) {
+                    android.util.Log.w("MapVM", "Snapshot is null")
+                    return@addSnapshotListener
+                }
                 val games = snapshot.documents.mapNotNull { doc ->
                     runCatching {
                         doc.data?.toGame(docId = doc.id, currentUserUid = currentUid)
                     }.getOrNull()
                 }
+                android.util.Log.d("MapVM", "Loaded ${games.size} games from Firestore")
                 _allGames.value = games
             }
     }
