@@ -1,19 +1,22 @@
 package com.example.pickuphoos.ui.screens
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
@@ -22,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,9 +40,9 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 
-// UVA Grounds center coordinate
-private val UVA_CENTER = LatLng(38.0336, -78.5080)
+private val UVA_CENTER = LatLng(38.0356, -78.5036)
 
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
@@ -95,31 +97,34 @@ fun MapScreen(
         )
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkNavy)
-    ) {
-        BottomSheetScaffold(
-            scaffoldState = sheetState,
-            sheetPeekHeight = 200.dp,
-            sheetContainerColor = DarkNavy,
-            sheetShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-            containerColor = Color.Transparent,
-            modifier = Modifier.weight(1f),
-            sheetContent = {
-                GameBottomSheet(
-                    games = games,
-                    selectedSport = selectedSport,
-                    onJoinClick = { game -> viewModel.joinGame(game) },
-                    onGameClick = onGameClick
+    Scaffold(
+        containerColor = DarkNavy,
+        bottomBar = {
+            PickupHoosBottomNav(
+                currentRoute = "map",
+                onMapClick = {},
+                onListClick = onListClick,
+                onProfileClick = onProfileClick
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onCreateGameClick,
+                containerColor = OrangeAccent,
+                shape = RoundedCornerShape(14.dp),
+                elevation = FloatingActionButtonDefaults.elevation(0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Create Game",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-        ) { innerPadding ->
+        }
+    ) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
+
             ) {
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
@@ -141,7 +146,7 @@ fun MapScreen(
                             onClick = {
                                 viewModel.selectGame(game)
                                 cameraPositionState.move(
-                                    CameraUpdateFactory.newLatLngZoom(game.location, 16f)
+                                                           CameraUpdateFactory.newLatLngZoom(game.location, 16f)
                                 )
                             }
                         )
@@ -156,31 +161,86 @@ fun MapScreen(
                         .padding(top = 8.dp)
                 )
 
-                FloatingActionButton(
-                    onClick = onCreateGameClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 16.dp),
-                    containerColor = OrangeAccent,
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = FloatingActionButtonDefaults.elevation(0.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Create Game",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-        }
 
-        PickupHoosBottomNav(
-            currentRoute = "map",
-            onMapClick = {},
-            onListClick = onListClick,
-            onProfileClick = onProfileClick
-        )
+            }
+
+//        scaffoldPadding ->BottomSheetScaffold(
+//            scaffoldState = sheetState,
+//            sheetPeekHeight = 180.dp,
+//            sheetContainerColor = DarkNavy,
+//            sheetShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+//            containerColor = Color.Transparent,
+//            modifier = Modifier
+//                .fillMaxSize()
+//                .padding(scaffoldPadding)
+//            ,
+//            sheetContent = {
+//                GameBottomSheet(
+//                    games = games,
+//                    selectedSport = selectedSport,
+//                    onJoinClick = { game -> viewModel.joinGame(game) },
+//                    onGameClick = onGameClick
+//                )
+//            }
+//        ) { innerPadding ->
+//            Box(
+//                modifier = Modifier
+//                    .fillMaxSize()
+//                    .padding(innerPadding)
+//            ) {
+//                GoogleMap(
+//                    modifier = Modifier.fillMaxSize(),
+//                    cameraPositionState = cameraPositionState,
+//                    properties = MapProperties(
+//                        isMyLocationEnabled = hasLocationPermission,
+//                        mapType = MapType.NORMAL
+//                    ),
+//                    uiSettings = MapUiSettings(
+//                        myLocationButtonEnabled = false,
+//                        zoomControlsEnabled = false,
+//                        compassEnabled = false
+//                    )
+//                ) {
+//                    games.forEach { game ->
+//                        GameMarker(
+//                            game = game,
+//                            isSelected = game.id == selectedGame?.id,
+//                            onClick = {
+//                                viewModel.selectGame(game)
+//                                cameraPositionState.move(
+//                                    CameraUpdateFactory.newLatLngZoom(game.location, 16f)
+//                                )
+//                            }
+//                        )
+//                    }
+//                }
+//
+//                SportFilterRow(
+//                    selectedSport = selectedSport,
+//                    onSportSelected = { viewModel.setFilter(it) },
+//                    modifier = Modifier
+//                        .align(Alignment.TopCenter)
+//                        .padding(top = 8.dp)
+//                )
+//
+//                FloatingActionButton(
+//                    onClick = onCreateGameClick,
+//                    modifier = Modifier
+//                        .align(Alignment.BottomEnd)
+//                        .padding(end = 16.dp, bottom = 16.dp),
+//                    containerColor = OrangeAccent,
+//                    shape = RoundedCornerShape(14.dp),
+//                    elevation = FloatingActionButtonDefaults.elevation(0.dp)
+//                ) {
+//                    Icon(
+//                        imageVector = Icons.Default.Add,
+//                        contentDescription = "Create Game",
+//                        tint = Color.White,
+//                        modifier = Modifier.size(24.dp)
+//                    )
+//                }
+//            }
+//        }
     }
 }
 
@@ -194,75 +254,34 @@ fun SportFilterRow(
 ) {
     val sports = listOf(null) + SportType.entries  // null = "All"
 
-    Row(
+    LazyRow(
         modifier = modifier
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .fillMaxWidth()
+            .background(DarkNavy.copy(alpha = 0.9f), RoundedCornerShape(24.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        sports.forEach { sport ->
-            val isActive = sport == selectedSport
+        items(sports) { sport ->
+            val selected = sport == selectedSport
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(if (isActive) OrangeAccent else DarkSurface)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (selected) OrangeAccent else DarkSurface)
                     .clickable { onSportSelected(sport) }
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = sport?.displayName ?: "All",
-                    color = if (isActive) Color.White else TextMuted,
-                    fontSize = 12.sp,
-                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal
+                    text = if (sport == null) "All" else sport.displayName,
+                    color = if (selected) Color.White else TextMuted,
+                    fontSize = 13.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
         }
     }
 }
 
-// ── Custom Map Marker ─────────────────────────────────────────────────────────
-
-@Composable
-fun GameMarker(
-    game: Game,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    MarkerComposable(
-        state = MarkerState(position = game.location),
-        onClick = { onClick(); true }
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(if (isSelected) 44.dp else 36.dp)
-                    .clip(CircleShape)
-                    .background(game.sport.pinColor)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = game.sport.emoji,
-                    fontSize = if (isSelected) 18.sp else 14.sp
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .background(DarkNavy, RoundedCornerShape(6.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = "${game.sport.displayName} · ${game.format}",
-                    color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
-
-// ── Bottom Sheet Content ──────────────────────────────────────────────────────
+// ── Game Bottom Sheet ─────────────────────────────────────────────────────────
 
 @Composable
 fun GameBottomSheet(
@@ -274,128 +293,184 @@ fun GameBottomSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp)
-            .padding(bottom = 16.dp)
+            .heightIn(min = 180.dp, max = 500.dp)
     ) {
-        // Handle
+        // Drag handle
         Box(
             modifier = Modifier
-                .width(32.dp)
-                .height(3.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color(0xFF333344))
-                .align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = if (selectedSport != null) "${selectedSport.displayName} games nearby"
-            else "Nearby games",
-            color = TextMuted,
-            fontSize = 10.sp,
-            letterSpacing = 0.5.sp,
-            modifier = Modifier.padding(bottom = 10.dp)
-        )
-
-        if (games.isEmpty()) {
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(80.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No games nearby right now",
-                    color = TextMuted,
-                    fontSize = 13.sp
-                )
-            }
-        } else {
-            games.forEach { game ->
+                modifier = Modifier
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFF333344))
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Nearby games",
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${games.size} ${if (selectedSport == null) "total" else selectedSport.displayName}",
+                color = TextMuted,
+                fontSize = 12.sp
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(games) { game ->
                 GameCard(
                     game = game,
                     onJoinClick = { onJoinClick(game) },
-                    onCardClick = { onGameClick(game) }
+                    onClick = { onGameClick(game) }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
 }
+
+// ── Game Card ─────────────────────────────────────────────────────────────────
 
 @Composable
 fun GameCard(
     game: Game,
     onJoinClick: () -> Unit,
-    onCardClick: () -> Unit
+    onClick: () -> Unit
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0F0F1A))
-            .clickable { onCardClick() }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        elevation = CardDefaults.cardElevation(0.dp)
     ) {
-        // Sport color dot
-        Box(
+        Row(
             modifier = Modifier
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(game.sport.pinColor)
-        )
-
-        Spacer(modifier = Modifier.width(10.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "${game.sport.displayName} · ${game.locationName}",
-                color = TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "${game.timeLabel} · ${game.playersJoined}/${game.maxPlayers} players",
-                color = TextMuted,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        if (game.isJoined) {
-            OutlinedButton(
-                onClick = {},
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                modifier = Modifier.height(28.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = OrangeAccent),
-                border = androidx.compose.foundation.BorderStroke(0.5.dp, OrangeAccent)
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Sport icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(game.sport.pinColor.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Joined", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(game.sport.emoji, fontSize = 20.sp)
             }
-        } else {
-            Button(
-                onClick = onJoinClick,
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                modifier = Modifier.height(28.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = OrangeAccent),
-                elevation = ButtonDefaults.buttonElevation(0.dp)
-            ) {
-                Text("Join", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = game.sport.displayName,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = game.locationName,
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+                Text(
+                    text = "${game.playersJoined}/${game.maxPlayers} • ${game.timeLabel}",
+                    color = Color(0xFF999999),
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            if (game.isJoined) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(OrangeAccent.copy(alpha = 0.15f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text("Joined", color = OrangeAccent, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                }
+            } else if (game.playersJoined < game.maxPlayers) {
+                OutlinedButton(
+                    onClick = onJoinClick,
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = OrangeAccent),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, OrangeAccent),
+                    contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                    Text("Join", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
             }
         }
     }
 }
-// ── Bottom Navigation Bar ─────────────────────────────────────────────────────
 
-data class BottomNavItem(
-    val label: String,
-    val route: String,
-    val icon: ImageVector
-)
+// ── Game Marker ───────────────────────────────────────────────────────────────
+
+@Composable
+fun GameMarker(
+    game: Game,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    MarkerComposable(
+        state = MarkerState(position = game.location),
+        onClick = {
+            onClick()
+            true
+        }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (isSelected) 48.dp else 40.dp)
+                .clip(CircleShape)
+                .background(if (isSelected) game.sport.pinColor else game.sport.pinColor.copy(alpha = 0.9f))
+                .padding(2.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = game.sport.emoji,
+                fontSize = if (isSelected) 22.sp else 18.sp
+            )
+        }
+    }
+}
+
+// ── Bottom Navigation ─────────────────────────────────────────────────────────
 
 @Composable
 fun PickupHoosBottomNav(
@@ -404,52 +479,69 @@ fun PickupHoosBottomNav(
     onListClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
-    val items = listOf(
-        BottomNavItem("Map", "map", Icons.Outlined.Map),
-        BottomNavItem("List", "list", Icons.Outlined.List),
-        BottomNavItem("Profile", "profile", Icons.Outlined.Person)
-    )
-
     NavigationBar(
-        containerColor = DarkNavy,
-        tonalElevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 0.dp, topEnd = 0.dp))
+        containerColor = Color(0xFF131325),
+        contentColor = TextMuted,
+        tonalElevation = 0.dp
     ) {
-        items.forEach { item ->
-            val selected = item.route == currentRoute
-            NavigationBarItem(
-                selected = selected,
-                onClick = {
-                    when (item.route) {
-                        "map"     -> onMapClick()
-                        "list"    -> onListClick()
-                        "profile" -> onProfileClick()
-                    }
-                },
-                icon = {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.label,
-                        modifier = Modifier.size(22.dp)
-                    )
-                },
-                label = {
-                    Text(
-                        text = item.label,
-                        fontSize = 11.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = OrangeAccent,
-                    selectedTextColor = OrangeAccent,
-                    unselectedIconColor = TextMuted,
-                    unselectedTextColor = TextMuted,
-                    indicatorColor = Color.Transparent
+        NavigationBarItem(
+            selected = currentRoute == "map",
+            onClick = onMapClick,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Map,
+                    contentDescription = "Map",
+                    modifier = Modifier.size(22.dp)
                 )
+            },
+            label = { Text("Map", fontSize = 11.sp) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = OrangeAccent,
+                selectedTextColor = OrangeAccent,
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = TextMuted,
+                unselectedTextColor = TextMuted
             )
-        }
+        )
+
+        NavigationBarItem(
+            selected = currentRoute == "list",
+            onClick = onListClick,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.List,
+                    contentDescription = "List",
+                    modifier = Modifier.size(22.dp)
+                )
+            },
+            label = { Text("List", fontSize = 11.sp) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = OrangeAccent,
+                selectedTextColor = OrangeAccent,
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = TextMuted,
+                unselectedTextColor = TextMuted
+            )
+        )
+
+        NavigationBarItem(
+            selected = currentRoute == "profile",
+            onClick = onProfileClick,
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Person,
+                    contentDescription = "Profile",
+                    modifier = Modifier.size(22.dp)
+                )
+            },
+            label = { Text("Profile", fontSize = 11.sp) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = OrangeAccent,
+                selectedTextColor = OrangeAccent,
+                indicatorColor = Color.Transparent,
+                unselectedIconColor = TextMuted,
+                unselectedTextColor = TextMuted
+            )
+        )
     }
 }

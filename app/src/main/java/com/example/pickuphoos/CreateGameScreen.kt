@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,8 +38,10 @@ import coil.compose.AsyncImage
 import com.example.pickuphoos.model.SportType
 import com.example.pickuphoos.ui.theme.*
 import com.example.pickuphoos.viewmodel.CreateGameViewModel
+//import com.google.type.LatLng
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.android.gms.maps.model.LatLng as LatLng
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -198,14 +202,60 @@ fun CreateGameScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // ── Location ──────────────────────────────────────────────────────
-            SectionLabel("LOCATION")
+//            SectionLabel("LOCATION")
+//            FieldRow(
+//                icon = Icons.Outlined.Place,
+//                placeholder = "Pick a location",
+//                value = state.locationName,
+//                onClick = { /* TODO: location picker */ },
+//                showChevron = true
+//            )
+            var showLocationPicker by remember { mutableStateOf(false) }
+
             FieldRow(
                 icon = Icons.Outlined.Place,
                 placeholder = "Pick a location",
                 value = state.locationName,
-                onClick = { /* TODO: location picker */ },
+                onClick = { showLocationPicker = true },
                 showChevron = true
             )
+
+            if (showLocationPicker) {
+                val locations = listOf(
+                    "Memorial Gym" to LatLng(38.0365, -78.5073),
+                    "North Grounds Recreation Center" to LatLng(38.0489, -78.5102),
+                    "Slaughter Recreation Center" to LatLng(38.0348, -78.5090),
+                    "AFC" to LatLng(38.0336, -78.5108),
+                    "Snyder Tennis Center" to LatLng(38.0462, -78.5130)
+                )
+
+                AlertDialog(
+                    onDismissRequest = { showLocationPicker = false },
+                    title = { Text("Select Location") },
+                    text = {
+                        LazyColumn {
+                            items(locations) { location ->
+                                Text(
+                                    text = location.first,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.setLocation(location.first,location.second)
+                                            showLocationPicker = false
+                                        }
+                                        .padding(vertical = 12.dp, horizontal = 8.dp)
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showLocationPicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
 
             // ── Date + Time row ───────────────────────────────────────────────
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

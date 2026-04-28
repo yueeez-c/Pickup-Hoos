@@ -17,7 +17,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.PickupHoos">
 
-        <!-- Google Maps API Key -->
+        <!-- Google Maps API Key (injected from local.properties via build.gradle.kts) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />

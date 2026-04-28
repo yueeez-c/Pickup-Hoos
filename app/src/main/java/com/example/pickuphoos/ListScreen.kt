@@ -69,15 +69,15 @@ fun ListScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 },
-                actions = {
-                    IconButton(onClick = { /* TODO: open search */ }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Search,
-                            contentDescription = "Search",
-                            tint = TextMuted
-                        )
-                    }
-                },
+//                actions = {
+//                    IconButton(onClick = { /* TODO: open search */ }) {
+//                        Icon(
+//                            imageVector = Icons.Outlined.Search,
+//                            contentDescription = "Search",
+//                            tint = TextMuted
+//                        )
+//                    }
+//                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF131325)
                 )
