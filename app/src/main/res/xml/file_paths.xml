@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
-    <paths>
-        <cache-path name="camera_images" path="camera_images/" />
-    </paths>
-</PreferenceScreen>
+<paths>
+    <cache-path name="camera_images" path="." />
+</paths>

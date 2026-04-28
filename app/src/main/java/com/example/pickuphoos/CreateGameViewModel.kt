@@ -35,6 +35,7 @@ data class CreateGameUiState(
     },
     val maxPlayers: Int = 6,
     val thumbnailUri: Uri? = null,
+    val cameraUri: Uri? = null,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val createdGameId: String? = null
@@ -56,7 +57,7 @@ data class CreateGameUiState(
 
 private fun isSameDay(a: Calendar, b: Calendar): Boolean =
     a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
-    a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+            a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
@@ -102,10 +103,14 @@ class CreateGameViewModel(application: Application) : AndroidViewModel(applicati
 
     // ── Camera URI ────────────────────────────────────────────────────────────
 
-    fun prepareCameraUri(context: Context): Uri {
-        val dir = File(context.cacheDir, "camera_images").also { it.mkdirs() }
-        val file = File(dir, "game_${UUID.randomUUID()}.jpg")
-        return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+    fun getCameraUri(): Uri {
+        if (_uiState.value.cameraUri == null) {
+            val dir = File(getApplication<Application>().cacheDir, "camera_images").also { it.mkdirs() }
+            val file = File(dir, "game_${UUID.randomUUID()}.jpg")
+            val uri = FileProvider.getUriForFile(getApplication<Application>(), "${getApplication<Application>().packageName}.provider", file)
+            _uiState.value = _uiState.value.copy(cameraUri = uri)
+        }
+        return _uiState.value.cameraUri!!
     }
 
     // ── Submit ────────────────────────────────────────────────────────────────

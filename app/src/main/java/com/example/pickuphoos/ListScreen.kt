@@ -2,16 +2,13 @@ package com.example.pickuphoos.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,18 +21,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.pickuphoos.model.Game
-import com.example.pickuphoos.model.SportType
 import com.example.pickuphoos.ui.theme.*
 import com.example.pickuphoos.viewmodel.MapViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import java.text.SimpleDateFormat
 import java.util.*
-
+import com.example.pickuphoos.viewmodel.ProfileViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListScreen(
     viewModel: MapViewModel,
+    profileViewModel: ProfileViewModel, // Add this parameter
     onGameClick: (Game) -> Unit,
     onCreateGameClick: () -> Unit,
     onMapClick: () -> Unit = {},
@@ -44,7 +40,10 @@ fun ListScreen(
     val games by viewModel.filteredGames.collectAsStateWithLifecycle()
     val selectedSport by viewModel.selectedSport.collectAsStateWithLifecycle()
 
-    var showMyGamesOnly by remember { mutableStateOf(false) }
+    // Get showMyGamesOnly from ProfileViewModel instead of local state
+    val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val showMyGamesOnly = profileState.showMyGamesOnly
+
     val currentUid = Firebase.auth.currentUser?.uid ?: ""
 
     val visibleGames = remember(games, showMyGamesOnly) {
@@ -69,15 +68,6 @@ fun ListScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 },
-//                actions = {
-//                    IconButton(onClick = { /* TODO: open search */ }) {
-//                        Icon(
-//                            imageVector = Icons.Outlined.Search,
-//                            contentDescription = "Search",
-//                            tint = TextMuted
-//                        )
-//                    }
-//                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF131325)
                 )
@@ -121,7 +111,7 @@ fun ListScreen(
             ) {
                 Switch(
                     checked = showMyGamesOnly,
-                    onCheckedChange = { showMyGamesOnly = it },
+                    onCheckedChange = { profileViewModel.setShowMyGamesOnly(it) }, // Update via ProfileViewModel
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = OrangeAccent,

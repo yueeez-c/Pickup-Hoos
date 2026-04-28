@@ -1,7 +1,9 @@
 package com.example.pickuphoos.ui.screens
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pickuphoos.model.SportType
@@ -61,11 +64,23 @@ fun CreateGameScreen(
     }
 
     // Camera launcher
-    val cameraUri = remember { viewModel.prepareCameraUri(context) }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success) viewModel.setThumbnail(cameraUri)
+        if (success && state.cameraUri != null) {
+            viewModel.setThumbnail(state.cameraUri!!)
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, get URI and launch camera
+            val cameraUri = viewModel.getCameraUri()
+            cameraLauncher.launch(cameraUri)
+        }
+        // If denied, silently do nothing (user will tap again if they want to retry)
     }
 
     var showImageDialog by remember { mutableStateOf(false) }
@@ -329,7 +344,19 @@ fun CreateGameScreen(
                     TextButton(
                         onClick = {
                             showImageDialog = false
-                            cameraLauncher.launch(cameraUri)
+                            // Check permission first before launching camera
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                // Permission granted, get URI and launch camera
+                                val cameraUri = viewModel.getCameraUri()
+                                cameraLauncher.launch(cameraUri)
+                            } else {
+                                // Request permission
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -355,6 +382,8 @@ fun CreateGameScreen(
         )
     }
 }
+
+private fun CreateGameViewModel.uploadAvatar(cameraUri: Uri) {}
 
 // ── Components ────────────────────────────────────────────────────────────────
 

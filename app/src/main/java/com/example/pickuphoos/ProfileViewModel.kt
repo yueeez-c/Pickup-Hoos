@@ -1,182 +1,163 @@
 package com.example.pickuphoos.viewmodel
 
 import android.app.Application
-import android.content.Context
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.pickuphoos.model.SportType
-import com.google.firebase.auth.ktx.auth
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
-import com.google.firebase.storage.ktx.storage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.io.File
-import java.util.UUID
-
-// ─── UI State ─────────────────────────────────────────────────────────────────
+import java.io.IOException
 
 data class ProfileUiState(
     val name: String = "",
     val email: String = "",
     val avatarUrl: String = "",
+    val cameraUri: Uri? = null,
     val sportPreferences: List<String> = emptyList(),
     val preferredTime: String = "",
     val preferredLocation: String = "",
-    val showContactInfo: Boolean = false,
-    val showMyGamesOnly: Boolean = false,
-    val isLoading: Boolean = false,
-    val isSaving: Boolean = false
+    val showContactInfo: Boolean = true,
+    val showMyGamesOnly: Boolean = false
 )
 
-// ─── ViewModel ────────────────────────────────────────────────────────────────
+class ProfileViewModel(
+    application: Application
+) : AndroidViewModel(application) {
 
-class ProfileViewModel(application: Application) : AndroidViewModel(application) {
+    private val context = application.applicationContext
 
-    private val auth = Firebase.auth
-    private val db = Firebase.firestore
-    private val storage = Firebase.storage
-
-    private val uid get() = auth.currentUser?.uid ?: ""
+    private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
+    private val storage = FirebaseStorage.getInstance()
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    // Temp file URI for camera captures
-    private var cameraImageUri: Uri? = null
-
     init {
-        loadProfile()
+        loadUserProfile()
     }
 
-    // ── Load from Firestore ───────────────────────────────────────────────────
-
-    private fun loadProfile() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
-            try {
-                val doc = db.collection("users").document(uid).get().await()
-                val data = doc.data ?: return@launch
-                val sports = (data["sportPreferences"] as? List<*>)
-                    ?.filterIsInstance<String>() ?: emptyList()
-
-                _uiState.value = ProfileUiState(
-                    name = data["name"] as? String ?: "",
-                    email = data["email"] as? String ?: auth.currentUser?.email ?: "",
-                    avatarUrl = data["avatarUrl"] as? String ?: "",
-                    sportPreferences = sports,
-                    preferredTime = data["preferredTime"] as? String ?: "",
-                    preferredLocation = data["preferredLocation"] as? String ?: "",
-                    showContactInfo = data["showContactInfo"] as? Boolean ?: false,
-                    showMyGamesOnly = data["showMyGamesOnly"] as? Boolean ?: false,
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false)
-            }
-        }
-    }
-
-    // ── Toggle sport preference ───────────────────────────────────────────────
-
-    fun toggleSport(sport: SportType) {
-        val current = _uiState.value.sportPreferences.toMutableList()
-        if (sport.name in current) current.remove(sport.name)
-        else current.add(sport.name)
-        _uiState.value = _uiState.value.copy(sportPreferences = current)
-        saveField("sportPreferences", current)
-    }
-
-    // ── Toggle settings ───────────────────────────────────────────────────────
-
-    fun setShowContactInfo(value: Boolean) {
-        _uiState.value = _uiState.value.copy(showContactInfo = value)
-        saveField("showContactInfo", value)
-    }
-
-    fun setShowMyGamesOnly(value: Boolean) {
-        _uiState.value = _uiState.value.copy(showMyGamesOnly = value)
-        saveField("showMyGamesOnly", value)
-    }
-
-    fun setPreferredTime(value: String) {
-        _uiState.value = _uiState.value.copy(preferredTime = value)
-        saveField("preferredTime", value)
-    }
-
-    fun setPreferredLocation(value: String) {
-        _uiState.value = _uiState.value.copy(preferredLocation = value)
-        saveField("preferredLocation", value)
-    }
-
-    // ── Save single field to Firestore ────────────────────────────────────────
-
-    private fun saveField(field: String, value: Any) {
-        viewModelScope.launch {
-            try {
-                db.collection("users").document(uid)
-                    .update(field, value).await()
-            } catch (_: Exception) {}
-        }
-    }
-
-    // ── Camera URI provider ───────────────────────────────────────────────────
-    //
-    // Creates a temp file in cache and returns a content:// URI via FileProvider.
-    // Add this to AndroidManifest.xml inside <application>:
-    //
-    //   <provider
-    //     android:name="androidx.core.content.FileProvider"
-    //     android:authorities="${applicationId}.provider"
-    //     android:exported="false"
-    //     android:grantUriPermissions="true">
-    //     <meta-data
-    //       android:name="android.support.FILE_PROVIDER_PATHS"
-    //       android:resource="@xml/file_paths" />
-    //   </provider>
-    //
-    // And create res/xml/file_paths.xml:
-    //   <paths>
-    //     <cache-path name="camera_images" path="camera_images/" />
-    //   </paths>
-
+    /**
+     * Get the URI for saving a camera photo.
+     * Creates a temporary file in the app's cache directory and stores it in state.
+     * This URI can be passed to the camera intent for saving the captured photo.
+     */
     fun getCameraUri(): Uri {
-        val context: Context = getApplication()
-        val dir = File(context.cacheDir, "camera_images").also { it.mkdirs() }
-        val file = File(dir, "avatar_${UUID.randomUUID()}.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
-        cameraImageUri = uri
-        return uri
+        if (_uiState.value.cameraUri == null) {
+            val cacheDir = context.cacheDir
+            val imageFile = File(
+                cacheDir,
+                "camera_${System.currentTimeMillis()}.jpg"
+            )
+            cacheDir.mkdirs()
+            try { imageFile.createNewFile() } catch (e: IOException) { /* log */ }
+
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                imageFile
+            )
+            _uiState.value = _uiState.value.copy(cameraUri = uri)
+        }
+        return _uiState.value.cameraUri!!
     }
 
-    // ── Upload avatar to Firebase Storage ─────────────────────────────────────
+    /**
+     * Upload the captured/selected photo to Firebase Storage and update Firestore.
+     */
+    fun uploadAvatar(photoUri: Uri) {
+        val userId = auth.currentUser?.uid ?: return
+        val storageRef = storage.reference.child("avatars/$userId/profile.jpg")
 
-    fun uploadAvatar(uri: Uri) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true)
-            try {
-                val ref = storage.reference
-                    .child("avatars/$uid/${UUID.randomUUID()}.jpg")
-
-                ref.putFile(uri).await()
-                val downloadUrl = ref.downloadUrl.await().toString()
-
-                // Update Firestore and local state
-                db.collection("users").document(uid)
-                    .update("avatarUrl", downloadUrl).await()
-
-                _uiState.value = _uiState.value.copy(
-                    avatarUrl = downloadUrl,
-                    isSaving = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isSaving = false)
+        storageRef.putFile(photoUri)
+            .addOnSuccessListener {
+                storageRef.downloadUrl.addOnSuccessListener { downloadUrl ->
+                    // Update Firestore with new avatar URL
+                    firestore.collection("users").document(userId)
+                        .update("avatarUrl", downloadUrl.toString())
+                        .addOnSuccessListener {
+                            // Update UI state
+                            _uiState.value = _uiState.value.copy(
+                                avatarUrl = downloadUrl.toString()
+                            )
+                        }
+                }
             }
+    }
+
+    /**
+     * Load user profile from Firestore.
+     */
+    private fun loadUserProfile() {
+        val userId = auth.currentUser?.uid ?: return
+
+        firestore.collection("users").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+
+                snapshot?.let {
+                    _uiState.value = ProfileUiState(
+                        name = it.getString("name") ?: "",
+                        email = it.getString("email") ?: "",
+                        avatarUrl = it.getString("avatarUrl") ?: "",
+                        sportPreferences = (it.get("sportPreferences") as? List<*>)?.map { it.toString() } ?: emptyList(),
+                        preferredTime = it.getString("preferredTime") ?: "",
+                        preferredLocation = it.getString("preferredLocation") ?: "",
+                        showContactInfo = it.getBoolean("showContactInfo") ?: true,
+                        showMyGamesOnly = it.getBoolean("showMyGamesOnly") ?: false
+                    )
+                }
+            }
+    }
+
+    /**
+     * Toggle a sport in the user's preferences.
+     */
+    fun toggleSport(sport: com.example.pickuphoos.model.SportType) {
+        val userId = auth.currentUser?.uid ?: return
+        val currentPrefs = _uiState.value.sportPreferences.toMutableList()
+
+        if (sport.name in currentPrefs) {
+            currentPrefs.remove(sport.name)
+        } else {
+            currentPrefs.add(sport.name)
         }
+
+        _uiState.value = _uiState.value.copy(sportPreferences = currentPrefs)
+
+        firestore.collection("users").document(userId)
+            .update("sportPreferences", currentPrefs)
+    }
+
+    /**
+     * Update showContactInfo preference.
+     */
+    fun setShowContactInfo(value: Boolean) {
+        val userId = auth.currentUser?.uid ?: return
+        _uiState.value = _uiState.value.copy(showContactInfo = value)
+        firestore.collection("users").document(userId)
+            .update("showContactInfo", value)
+    }
+
+    /**
+     * Update showMyGamesOnly preference.
+     */
+    fun setShowMyGamesOnly(value: Boolean) {
+        val userId = auth.currentUser?.uid ?: return
+        _uiState.value = _uiState.value.copy(showMyGamesOnly = value)
+        firestore.collection("users").document(userId)
+            .update("showMyGamesOnly", value)
+    }
+
+    /**
+     * Sign out the current user.
+     */
+    fun signOut() {
+        auth.signOut()
     }
 }

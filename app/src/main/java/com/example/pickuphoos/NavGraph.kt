@@ -45,6 +45,7 @@ object Routes {
 fun PickupHoosNavGraph(navController: NavHostController) {
 
     val authViewModel: AuthViewModel = viewModel()
+    val profileViewModel: ProfileViewModel = viewModel()
     val mapViewModel: MapViewModel = viewModel()
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -116,16 +117,16 @@ fun PickupHoosNavGraph(navController: NavHostController) {
             )
         }
 
-        composable(Routes.PREFERENCE) {
-            LaunchedEffect(Unit) { navReady = true }
-            // TODO: replace with PreferenceScreen when built
-            // For now navigate straight to map so app doesn't hang on blank screen
-            LaunchedEffect(Unit) {
-                navController.navigate(Routes.MAP) {
-                    popUpTo(Routes.PREFERENCE) { inclusive = true }
-                }
-            }
-        }
+//        composable(Routes.PREFERENCE) {
+//            LaunchedEffect(Unit) { navReady = true }
+//            // TODO: replace with PreferenceScreen when built
+//            // For now navigate straight to map so app doesn't hang on blank screen
+//            LaunchedEffect(Unit) {
+//                navController.navigate(Routes.MAP) {
+//                    popUpTo(Routes.PREFERENCE) { inclusive = true }
+//                }
+//            }
+//        }
 
         composable(Routes.MAP) {
             LaunchedEffect(Unit) { navReady = true }
@@ -142,6 +143,7 @@ fun PickupHoosNavGraph(navController: NavHostController) {
             LaunchedEffect(Unit) { navReady = true }
             ListScreen(
                 viewModel = mapViewModel,
+                profileViewModel = profileViewModel,
                 onGameClick = { game -> navController.navigate(Routes.gameDetail(game.id)) },
                 onCreateGameClick = { navController.navigate(Routes.CREATE_GAME) },
                 onMapClick = {
