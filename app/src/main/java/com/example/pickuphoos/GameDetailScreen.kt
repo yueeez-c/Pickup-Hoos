@@ -256,10 +256,17 @@ fun GameDetailScreen(
 
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 state.playerNames.forEachIndexed { index, name ->
+                    val playerUid = state.playerUids.getOrNull(index) ?: ""
+                    val isCurrentUser = playerUid == state.currentUid
+                    val showContactInfo = state.playerContactInfoVisibility[playerUid] ?: false
+                    val avatarUrl = state.playerAvatarUrls[playerUid] ?: ""
+
                     PlayerRow(
                         name = name,
+                        avatarUrl = avatarUrl,
+                        showAvatar = showContactInfo || isCurrentUser, // Always show own avatar
                         isHost = index == 0 && name == game.hostName,
-                        isYou = state.playerUids.getOrNull(index) == state.currentUid
+                        isYou = isCurrentUser
                     )
                 }
 
@@ -317,6 +324,8 @@ private fun InfoCard(
 @Composable
 private fun PlayerRow(
     name: String,
+    avatarUrl: String = "",
+    showAvatar: Boolean = false,
     isHost: Boolean = false,
     isYou: Boolean = false,
     isEmpty: Boolean = false
@@ -338,12 +347,25 @@ private fun PlayerRow(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (isEmpty) "?" else name.firstOrNull()?.uppercase() ?: "?",
-                color = if (isEmpty) Color(0xFF444444) else Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
+            if (!isEmpty && showAvatar && avatarUrl.isNotBlank()) {
+                // Show real avatar image
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = "Avatar for $name",
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Show first letter or question mark
+                Text(
+                    text = if (isEmpty) "?" else name.firstOrNull()?.uppercase() ?: "?",
+                    color = if (isEmpty) Color(0xFF444444) else Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(10.dp))

@@ -21,6 +21,8 @@ data class GameDetailUiState(
     val game: Game? = null,
     val playerNames: List<String> = emptyList(),
     val playerUids: List<String> = emptyList(),
+    val playerAvatarUrls: Map<String, String> = emptyMap(),
+    val playerContactInfoVisibility: Map<String, Boolean> = emptyMap(),
     val currentUid: String = "",
     val isHost: Boolean = false,
     val isJoined: Boolean = false,
@@ -84,31 +86,54 @@ class GameDetailViewModel(
                     currentUid = currentUid
                 )
 
-                // Fetch player names asynchronously
-                fetchPlayerNames(game.playerUids, game.hostName, game.hostUid)
+                // Fetch player names and info asynchronously
+                fetchPlayerInfo(game.playerUids, game.hostName, game.hostUid)
             }
     }
 
-    private fun fetchPlayerNames(playerUids: List<String>, hostName: String, hostUid: String) {
+    private fun fetchPlayerInfo(playerUids: List<String>, hostName: String, hostUid: String) {
         viewModelScope.launch {
             try {
                 // Order: host first, then others in order of joining
                 val sortedUids = playerUids.sortedByDescending { it == hostUid }
-                val names = sortedUids.map { uid ->
-                    if (uid == hostUid) hostName
-                    else {
+                val names = mutableListOf<String>()
+                val avatarUrls = mutableMapOf<String, String>()
+                val contactInfoVisibility = mutableMapOf<String, Boolean>()
+
+                sortedUids.forEach { uid ->
+                    if (uid == hostUid) {
+                        names.add(hostName)
+                    } else {
                         try {
                             val doc = db.collection("users").document(uid).get().await()
-                            doc.getString("name") ?: "Player"
-                        } catch (_: Exception) { "Player" }
+                            names.add(doc.getString("name") ?: "Player")
+                        } catch (_: Exception) {
+                            names.add("Player")
+                        }
+                    }
+
+                    // Fetch avatar and privacy settings for all players
+                    try {
+                        val userDoc = db.collection("users").document(uid).get().await()
+                        if (userDoc.exists()) {
+                            avatarUrls[uid] = userDoc.getString("avatarUrl") ?: ""
+                            contactInfoVisibility[uid] = userDoc.getBoolean("showAvatar") ?: true
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("GameDetailVM", "Failed to fetch user info for $uid: ${e.message}")
+                        // Default to not showing contact info if we can't load it
+                        contactInfoVisibility[uid] = false
                     }
                 }
+
                 _uiState.value = _uiState.value.copy(
                     playerNames = names,
-                    playerUids = sortedUids
+                    playerUids = sortedUids,
+                    playerAvatarUrls = avatarUrls,
+                    playerContactInfoVisibility = contactInfoVisibility
                 )
             } catch (e: Exception) {
-                android.util.Log.e("GameDetailVM", "Failed to fetch player names: ${e.message}")
+                android.util.Log.e("GameDetailVM", "Failed to fetch player info: ${e.message}")
             }
         }
     }
