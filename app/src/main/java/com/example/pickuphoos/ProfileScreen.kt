@@ -1,5 +1,7 @@
 package com.example.pickuphoos.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,14 +25,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.pickuphoos.model.SportType
 import com.example.pickuphoos.ui.theme.*
 import com.example.pickuphoos.viewmodel.ProfileViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +47,10 @@ fun ProfileScreen(
     onListClick: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // ── Time picker state ──────────────────────────────────────────────────
+    var showTimePicker by remember { mutableStateOf(false) }
 
     // ── Avatar picker (gallery) ───────────────────────────────────────────────
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -49,12 +59,24 @@ fun ProfileScreen(
         uri?.let { viewModel.uploadAvatar(it) }
     }
 
-    // ── Camera launcher ───────────────────────────────────────────────────────
-    val cameraUri = viewModel.getCameraUri()
+    // ── Camera permission launcher ────────────────────────────────────────────
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success) viewModel.uploadAvatar(cameraUri)
+        if (success && uiState.cameraUri != null) {
+            viewModel.uploadAvatar(uiState.cameraUri!!)
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permission granted, get URI and launch camera
+            val cameraUri = viewModel.getCameraUri()
+            cameraLauncher.launch(cameraUri)
+        }
+        // If denied, silently do nothing (user will tap again if they want to retry)
     }
 
     var showAvatarDialog by remember { mutableStateOf(false) }
@@ -168,23 +190,23 @@ fun ProfileScreen(
                 icon = Icons.Outlined.Schedule,
                 label = "Preferred time",
                 value = uiState.preferredTime.ifBlank { "Not set" },
-                onClick = { /* open time picker */ }
+                onClick = { showTimePicker = true }
             )
-            PreferenceRow(
-                icon = Icons.Outlined.Place,
-                label = "Preferred location",
-                value = uiState.preferredLocation.ifBlank { "Not set" },
-                onClick = { /* open location picker */ }
-            )
+//            PreferenceRow(
+//                icon = Icons.Outlined.Place,
+//                label = "Preferred location",
+//                value = uiState.preferredLocation.ifBlank { "Not set" },
+//                onClick = { /* open location picker */ }
+//            )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             // ── Privacy Toggles ───────────────────────────────────────────────
             ToggleRow(
-                title = "Show contact info",
+                title = "Show Avatar",
                 subtitle = "Visible to players in your games",
-                checked = uiState.showContactInfo,
-                onCheckedChange = { viewModel.setShowContactInfo(it) }
+                checked = uiState.showAvatar,
+                onCheckedChange = { viewModel.setShowAvatar(it) }
             )
             ToggleRow(
                 title = "Show my games only",
@@ -223,7 +245,19 @@ fun ProfileScreen(
                     TextButton(
                         onClick = {
                             showAvatarDialog = false
-                            cameraLauncher.launch(cameraUri)
+                            // Check permission first before launching camera
+                            if (ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.CAMERA
+                                ) == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                // Permission granted, get URI and launch camera
+                                val cameraUri = viewModel.getCameraUri()
+                                cameraLauncher.launch(cameraUri)
+                            } else {
+                                // Request permission
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -248,6 +282,113 @@ fun ProfileScreen(
             }
         )
     }
+
+    // ── Time Picker Dialog ────────────────────────────────────────────────────
+    if (showTimePicker) {
+        TimePickerDialog(
+            currentTime = uiState.preferredTime,
+            onTimeSelected = { timeString ->
+                viewModel.setPreferredTime(timeString)
+                showTimePicker = false
+            },
+            onDismiss = { showTimePicker = false }
+        )
+    }
+}
+
+// ── Time Picker Dialog ────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerDialog(
+    currentTime: String,
+    onTimeSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Parse current time or default to current hour
+    val calendar = Calendar.getInstance()
+    val (initialHour, initialMinute) = if (currentTime.isNotBlank()) {
+        try {
+            val parts = currentTime.split(":")
+            val hour = parts[0].toInt()
+            val minute = parts[1].substringBefore(" ").toInt()
+            val isPM = currentTime.contains("PM")
+            val hour24 = if (isPM && hour != 12) hour + 12 else if (!isPM && hour == 12) 0 else hour
+            hour24 to minute
+        } catch (e: Exception) {
+            calendar.get(Calendar.HOUR_OF_DAY) to calendar.get(Calendar.MINUTE)
+        }
+    } else {
+        calendar.get(Calendar.HOUR_OF_DAY) to calendar.get(Calendar.MINUTE)
+    }
+
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = false
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkSurface,
+        title = {
+            Text(
+                "Select preferred time",
+                color = Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TimePicker(
+                    state = timePickerState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = Color(0xFF1A1A2E),
+                        selectorColor = OrangeAccent,
+                        containerColor = DarkSurface,
+                        periodSelectorBorderColor = DarkBorder,
+                        clockDialSelectedContentColor = Color.White,
+                        clockDialUnselectedContentColor = TextMuted,
+                        periodSelectorSelectedContainerColor = OrangeAccent,
+                        periodSelectorUnselectedContainerColor = Color(0xFF1A1A2E),
+                        periodSelectorSelectedContentColor = Color.White,
+                        periodSelectorUnselectedContentColor = TextMuted,
+                        timeSelectorSelectedContainerColor = OrangeAccent,
+                        timeSelectorUnselectedContainerColor = Color(0xFF1A1A2E),
+                        timeSelectorSelectedContentColor = Color.White,
+                        timeSelectorUnselectedContentColor = TextMuted
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val hour = timePickerState.hour
+                    val minute = timePickerState.minute
+                    val amPm = if (hour >= 12) "PM" else "AM"
+                    val displayHour = when (hour) {
+                        0 -> 12
+                        in 1..12 -> hour
+                        else -> hour - 12
+                    }
+                    val timeString = String.format("%d:%02d %s", displayHour, minute, amPm)
+                    onTimeSelected(timeString)
+                }
+            ) {
+                Text("Set", color = OrangeAccent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = TextMuted, fontSize = 14.sp)
+            }
+        }
+    )
 }
 
 // ── Reusable components ───────────────────────────────────────────────────────

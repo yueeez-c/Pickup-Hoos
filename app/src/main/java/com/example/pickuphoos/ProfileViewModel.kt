@@ -21,7 +21,7 @@ data class ProfileUiState(
     val sportPreferences: List<String> = emptyList(),
     val preferredTime: String = "",
     val preferredLocation: String = "",
-    val showContactInfo: Boolean = true,
+    val showAvatar: Boolean = true,
     val showMyGamesOnly: Boolean = false
 )
 
@@ -108,7 +108,7 @@ class ProfileViewModel(
                         sportPreferences = (it.get("sportPreferences") as? List<*>)?.map { it.toString() } ?: emptyList(),
                         preferredTime = it.getString("preferredTime") ?: "",
                         preferredLocation = it.getString("preferredLocation") ?: "",
-                        showContactInfo = it.getBoolean("showContactInfo") ?: true,
+                        showAvatar = it.getBoolean("showAvatar") ?: true,
                         showMyGamesOnly = it.getBoolean("showMyGamesOnly") ?: false
                     )
                 }
@@ -135,13 +135,13 @@ class ProfileViewModel(
     }
 
     /**
-     * Update showContactInfo preference.
+     * Update showAvatar preference.
      */
-    fun setShowContactInfo(value: Boolean) {
+    fun setShowAvatar(value: Boolean) {
         val userId = auth.currentUser?.uid ?: return
-        _uiState.value = _uiState.value.copy(showContactInfo = value)
+        _uiState.value = _uiState.value.copy(showAvatar = value)
         firestore.collection("users").document(userId)
-            .update("showContactInfo", value)
+            .update("showAvatar", value)
     }
 
     /**
@@ -159,5 +159,14 @@ class ProfileViewModel(
      */
     fun signOut() {
         auth.signOut()
+    }
+    /**
+     * Update preferred time.
+     */
+    fun setPreferredTime(time: String) {
+        val userId = auth.currentUser?.uid ?: return
+        _uiState.value = _uiState.value.copy(preferredTime = time)
+        firestore.collection("users").document(userId)
+            .update("preferredTime", time)
     }
 }
